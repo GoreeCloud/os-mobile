@@ -1,6 +1,6 @@
 ---
-title: "GoreeCloud OS Mobile — Feature Roadmap"
-document_type: "Feature Roadmap"
+title: "GoreeCloud OS Mobile — Planned Features"
+document_type: "Planned Features"
 product: "GoreeCloud OS Mobile"
 status: "Active roadmap control"
 version: "v0.7"
@@ -9,14 +9,13 @@ last_updated: "2026-09-15"
 repository: "GoreeCloud/goreecloud-os-mobile"
 ---
 
-# GoreeCloud OS Mobile — Feature Roadmap
+# GoreeCloud OS Mobile — Planned Features
 
 **Status:** Active roadmap control  
 **As of:** 2026-09-15  
 **Authoritative project record:** `GoreeCloud/Projects/Project Specification — GoreeCloud OS Mobile.md`  
 **Canonical repository:** `GoreeCloud/goreecloud-os-mobile`  
 **Repository specification:** `SPECIFICATIONS.md`  
-**Drive control:** `GoreeCloud/Feature Roadmap/GoreeCloud OS Mobile/FEATURE-ROADMAP.md`
 
 ## Purpose
 
@@ -30,7 +29,7 @@ All feature rows below are planning obligations unless separate authoritative im
 | --- | --- | --- | --- |
 | FR-001 | Reconcile and maintain every current planned or recommended GoreeCloud OS Mobile feature from the authoritative project record and verified repository evidence in this roadmap. | High | Ongoing control |
 | FR-002 | Move actionable feature obligations into GoreeCloud Tasks Management when required, preserving priority, dependency, and lifecycle disposition. | High | Ongoing control |
-| FR-003 | Do not mark features implemented, complete, cancelled, or superseded without authoritative evidence and synchronized repository/Drive roadmap updates. | High | Ongoing control |
+| FR-003 | Do not mark features implemented, complete, cancelled, or superseded without authoritative evidence and repository-native feature-record updates. | High | Ongoing control |
 | FR-004 | Hardened Operating System | Unassigned | Planned |
 | FR-005 | Hardware Memory Tagging | Unassigned | Planned |
 | FR-006 | Hardened Application Sandbox | Unassigned | Planned |
@@ -163,7 +162,7 @@ Detailed requirements for FR-004 through FR-128 are defined in Section 38, **Pla
 
 ## Maintenance and Synchronization
 
-The Drive and repository copies of `FEATURE-ROADMAP.md` must remain materially synchronized with one another and with the authoritative project specification. Update both copies whenever feature scope, priority, dependency, implementation status, cancellation, supersession, recommendation, or verification state materially changes.
+The Drive and repository copies of `PLANNED-FEATURES.md` must remain materially synchronized with one another and with the authoritative project specification. Update both copies whenever feature scope, priority, dependency, implementation status, cancellation, supersession, recommendation, or verification state materially changes.
 
 No feature may be represented as implemented, complete, production-ready, Release Candidate, or Stable solely because it appears in this roadmap. Completion and lifecycle claims require applicable authoritative implementation, validation, review, release, and physical-device evidence.
 
