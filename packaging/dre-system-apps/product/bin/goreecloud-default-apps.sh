@@ -33,7 +33,28 @@ role_contains() {
     role_name="$1"
     package_name="$2"
     holders="$(cmd role get-role-holders --user "$USER_ID" "$role_name" 2>/dev/null || true)"
-    printf '%s' "$holders" | tr ',' '\n' | grep -Fxq "$package_name"
+    printf '%s\n' "$holders" | tr ';,' '\n\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -Fxq "$package_name"
+}
+
+is_package_disabled() {
+    package_name="$1"
+    pm list packages -d --user "$USER_ID" "$package_name" 2>/dev/null | grep -Fxq "package:$package_name"
+}
+
+disable_fallback_gallery() {
+    package_name="$1"
+    if ! has_package "$package_name"; then
+        return 0
+    fi
+    if ! pm disable-user --user "$USER_ID" "$package_name" >/dev/null 2>&1; then
+        log_note "Could not disable fallback Gallery package $package_name."
+        return 1
+    fi
+    if ! is_package_disabled "$package_name"; then
+        log_note "Fallback Gallery package $package_name did not remain disabled."
+        return 1
+    fi
+    return 0
 }
 
 already_initialized="$(settings --user "$USER_ID" get secure "$MARKER" 2>/dev/null || true)"
@@ -66,12 +87,18 @@ if ! role_contains "$SYSTEM_GALLERY_ROLE" "$GALLERY_PACKAGE"; then
     exit 1
 fi
 
-# Only suppress the Lineage gallery surfaces after the GoreeCloud role assignment is verified.
-if has_package "org.lineageos.glimpse"; then
-    pm disable-user --user "$USER_ID" org.lineageos.glimpse >/dev/null 2>&1 || true
+# Only suppress Lineage gallery surfaces after the GoreeCloud role assignment is verified.
+# Retain the binaries for rollback, but fail the one-time initialization if user-facing fallback
+# Gallery packages cannot be disabled as intended.
+if ! disable_fallback_gallery "org.lineageos.glimpse"; then
+    exit 1
 fi
-if has_package "com.android.gallery3d"; then
-    pm disable-user --user "$USER_ID" com.android.gallery3d >/dev/null 2>&1 || true
+if ! disable_fallback_gallery "com.android.gallery3d"; then
+    exit 1
+fi
+if ! role_contains "$SYSTEM_GALLERY_ROLE" "$GALLERY_PACKAGE"; then
+    log_note "GoreeCloud Gallery lost SYSTEM_GALLERY after fallback suppression."
+    exit 1
 fi
 
 # Launcher3QuickStep intentionally remains installed. GoreeCloud Launcher owns HOME while the
