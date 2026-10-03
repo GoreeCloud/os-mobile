@@ -23,68 +23,68 @@ jobs:
           - id: launcher
             display_name: GoreeCloud Launcher
             repository: GoreeCloud/android-app-defaults
-            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            revision: 5f5eb5146bdb5a81eed48e1b497057e3112d2fef
             project_dir: apps/launcher
             gradle_version: 8.11.1
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/launcher/app/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.launcher
           - id: gallery
             display_name: GoreeCloud Gallery
             repository: GoreeCloud/android-app-defaults
-            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            revision: 5f5eb5146bdb5a81eed48e1b497057e3112d2fef
             project_dir: apps/gallery/native
             gradle_version: 8.14.3
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/gallery/native/app/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.gallery
           - id: keyboard
             display_name: GoreeCloud Keyboard
             repository: GoreeCloud/android-app-defaults
-            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            revision: 5f5eb5146bdb5a81eed48e1b497057e3112d2fef
             project_dir: apps/keyboard
             gradle_version: 8.11.1
             sdk_packages: "platforms;android-35 build-tools;35.0.0"
             task: ":android:app:assembleRelease"
             apk_glob: "apps/keyboard/android/app/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.keyboard
           - id: camera
             display_name: GoreeCloud Camera
             repository: GoreeCloud/android-app-defaults
-            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            revision: 5f5eb5146bdb5a81eed48e1b497057e3112d2fef
             project_dir: apps/camera
             gradle_version: 9.6.0
             sdk_packages: "platforms;android-37.0 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/camera/app/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.camera
           - id: since
             display_name: GoreeCloud Since
             repository: GoreeCloud/android-app-defaults
-            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            revision: 5f5eb5146bdb5a81eed48e1b497057e3112d2fef
             project_dir: .
             gradle_version: 8.11.1
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":apps:since:assembleRelease"
             apk_glob: "apps/since/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.since
           - id: clock
             display_name: GoreeCloud Clock
             repository: GoreeCloud/android-app-defaults
-            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            revision: 5f5eb5146bdb5a81eed48e1b497057e3112d2fef
             project_dir: .
             gradle_version: 8.11.1
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":apps:clock:assembleRelease"
             apk_glob: "apps/clock/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.clock
           - id: browser
             display_name: GoreeCloud Browser
@@ -95,7 +95,7 @@ jobs:
             sdk_packages: "platforms;android-35 build-tools;35.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/android/app/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: io.goreecloud.browser
           - id: memos
             display_name: GoreeCloud Memos
@@ -106,7 +106,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "android/app/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.memos
           - id: mail
             display_name: GoreeCloud Mail
@@ -117,7 +117,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "clients/android/app/build/outputs/apk/release/*.apk"
-            version_code: 2026100301
+            version_code: 2026100302
             package_id: com.goreecloud.mail
 
     steps:
@@ -254,11 +254,74 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - name: Check out package source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Android SDK for framework overlay
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: "15859902"
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+
+      - name: Install overlay compile SDK and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
       - name: Download all unsigned APK artifacts
         uses: actions/download-artifact@v7
         with:
           pattern: goreecloud-os-*-unsigned
           path: artifacts
+
+      - name: Build GoreeCloud system Gallery framework overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT2="$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
+          OVERLAY_ROOT="packaging/dre-system-apps/overlay/GoreeCloudGalleryFrameworksBaseOverlay"
+
+          test -x "$AAPT2"
+          test -x "$AAPT"
+          test -x "$ZIPALIGN"
+          test -f "$ANDROID_JAR"
+
+          rm -rf overlay-compiled overlay-raw.apk
+          mkdir -p overlay-compiled bundle/apks bundle/provenance
+          "$AAPT2" compile "$OVERLAY_ROOT/res/values/config.xml" -o overlay-compiled
+          "$AAPT2" link \
+            -o overlay-raw.apk \
+            --manifest "$OVERLAY_ROOT/AndroidManifest.xml" \
+            -I "$ANDROID_JAR" \
+            --auto-add-overlay \
+            overlay-compiled/*.flat
+          "$ZIPALIGN" -f -p 4 overlay-raw.apk bundle/apks/gallery-framework-overlay.apk
+
+          BADGING="$("$AAPT" dump badging bundle/apks/gallery-framework-overlay.apk | head -n 1)"
+          PACKAGE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.* versionCode='\([^']*\)'.*/\1/p")"
+          test "$PACKAGE" = "com.goreecloud.overlay.gallery.frameworksbase"
+          test "$VERSION_CODE" = "2026100302"
+
+          cat > bundle/provenance/gallery-framework-overlay.provenance.txt <<EOF
+          display_name=GoreeCloud Gallery framework overlay
+          repository=GoreeCloud/os-mobile
+          source_revision=$GITHUB_SHA
+          package_id=com.goreecloud.overlay.gallery.frameworksbase
+          version_code=2026100302
+          target_package=android
+          config_systemGallery=com.goreecloud.gallery
+          build_type=static-framework-rro-development-system-packaging
+          signing_state=unsigned
+          EOF
 
       - name: Assemble unsigned signing input bundle
         shell: bash
@@ -267,7 +330,7 @@ jobs:
           mkdir -p bundle/apks bundle/provenance
           find artifacts -type f -name '*.apk' -exec cp {} bundle/apks/ \;
           find artifacts -type f -name '*.provenance.txt' -exec cp {} bundle/provenance/ \;
-          test "$(find bundle/apks -type f -name '*.apk' | wc -l)" -eq 9
+          test "$(find bundle/apks -type f -name '*.apk' | wc -l)" -eq 10
           (
             cd bundle/apks
             sha256sum *.apk | sort > ../SHA256SUMS-UNSIGNED
@@ -275,8 +338,8 @@ jobs:
           cat > bundle/README.txt <<'EOF'
           GoreeCloud OS Mobile Development system-app signing input.
           Target baseline: OnePlus Nord N200 (dre), LineageOS 23.2 / Android 16.
-          Contains nine canonical-package APKs, aligned but intentionally unsigned.
-          These APKs require a protected GoreeCloud Development signing identity before device installation.
+          Contains nine canonical application APKs plus the GoreeCloud static framework overlay APK, aligned but intentionally unsigned.
+          All ten APKs require the protected GoreeCloud Development signing identity before device installation.
           EOF
 
       - name: Upload unsigned signing input bundle
