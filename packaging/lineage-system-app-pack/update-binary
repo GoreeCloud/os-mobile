@@ -7,8 +7,8 @@ ZIPFILE="$3"
 TMP="/tmp/goreecloud-os-system-pack.$$"
 
 ui_print() {
-  echo "ui_print $*" >&"$OUTFD"
-  echo "ui_print" >&"$OUTFD"
+  echo "ui_print $*" >"/proc/self/fd/$OUTFD"
+  echo "ui_print" >"/proc/self/fd/$OUTFD"
 }
 
 abort() {
@@ -47,11 +47,13 @@ esac
 ABI="$(prop ro.product.cpu.abi)"
 [ "$ABI" = "arm64-v8a" ] || abort "Unsupported primary ABI '$ABI'. Expected arm64-v8a."
 
-command -v unzip >/dev/null 2>&1 || abort "Recovery does not provide unzip."\ncommand -v sha256sum >/dev/null 2>&1 || abort "Recovery does not provide sha256sum."
+command -v unzip >/dev/null 2>&1 || abort "Recovery does not provide unzip."
+command -v sha256sum >/dev/null 2>&1 || abort "Recovery does not provide sha256sum."
 mkdir -p "$TMP" || abort "Unable to create temporary staging directory."
-unzip -o "$ZIPFILE" "payload/*" "goreecloud/*" -d "$TMP" >/dev/null || abort "Unable to extract package payload."\n( cd "$TMP" && sha256sum -c goreecloud/SHA256SUMS >/dev/null ) || abort "Package integrity verification failed."
+unzip -o "$ZIPFILE" "payload/*" "goreecloud/*" -d "$TMP" >/dev/null || abort "Unable to extract package payload."
+( cd "$TMP" && sha256sum -c goreecloud/SHA256SUMS >/dev/null ) || abort "Package integrity verification failed."
 
-# Ask recovery to mount the dynamic partitions. Lineage recovery knows its fstab.
+# Ask recovery to mount dynamic partitions using its device fstab.
 mount /product >/dev/null 2>&1 || true
 mount /system >/dev/null 2>&1 || true
 mount /system_root >/dev/null 2>&1 || true
@@ -77,7 +79,6 @@ done
 
 mount -o remount,rw "$PRODUCT_ROOT" >/dev/null 2>&1 ||   mount -o rw,remount "$PRODUCT_ROOT" >/dev/null 2>&1 ||   abort "product is not writable; refusing a partial install."
 
-# system must be writable so addon.d can preserve the product files across OTA.
 SYSTEM_MOUNT="$(dirname "$SYSTEM_ROOT")"
 [ "$SYSTEM_ROOT" = "/system" ] && SYSTEM_MOUNT="/system"
 mount -o remount,rw "$SYSTEM_MOUNT" >/dev/null 2>&1 ||   mount -o rw,remount "$SYSTEM_MOUNT" >/dev/null 2>&1 ||   abort "system is not writable; addon.d preservation cannot be installed safely."
@@ -104,7 +105,10 @@ chown root:root "$SYSTEM_ROOT/addon.d/30-goreecloud-os-apps.sh"
 chmod 0755 "$SYSTEM_ROOT/addon.d/30-goreecloud-os-apps.sh"
 
 if command -v restorecon >/dev/null 2>&1; then
-  restorecon -RF "$PRODUCT_ROOT/app/GoreeCloudMemos"     "$PRODUCT_ROOT/app/GoreeCloudLauncher"     "$PRODUCT_ROOT/app/GoreeCloudBrowser"     "$PRODUCT_ROOT/app/GoreeCloudKeyboard"     "$PRODUCT_ROOT/app/GoreeCloudGallery"     "$PRODUCT_ROOT/app/GoreeCloudMail"     "$PRODUCT_ROOT/app/GoreeCloudCamera"     "$PRODUCT_ROOT/app/GoreeCloudSince"     "$PRODUCT_ROOT/app/GoreeCloudClock" >/dev/null 2>&1 || true
+  for NAME in     GoreeCloudMemos GoreeCloudLauncher GoreeCloudBrowser GoreeCloudKeyboard     GoreeCloudGallery GoreeCloudMail GoreeCloudCamera GoreeCloudSince GoreeCloudClock
+  do
+    restorecon -RF "$PRODUCT_ROOT/app/$NAME" >/dev/null 2>&1 || true
+  done
   restorecon -F "$SYSTEM_ROOT/addon.d/30-goreecloud-os-apps.sh" >/dev/null 2>&1 || true
 fi
 

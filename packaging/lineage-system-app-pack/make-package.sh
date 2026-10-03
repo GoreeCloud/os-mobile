@@ -20,16 +20,28 @@ cp "$ROOT/30-goreecloud-os-apps.sh" "$work/payload/addon.d/30-goreecloud-os-apps
 chmod 0755 "$work/META-INF/com/google/android/update-binary" "$work/payload/addon.d/30-goreecloud-os-apps.sh"
 
 for app in "${apps[@]}"; do
-  test -s "$SIGNED_DIR/$app.apk" || { echo "Missing signed APK: $SIGNED_DIR/$app.apk" >&2; exit 1; }
+  test -s "$SIGNED_DIR/$app.apk" || {
+    echo "Missing signed APK: $SIGNED_DIR/$app.apk" >&2
+    exit 1
+  }
   cp "$SIGNED_DIR/$app.apk" "$work/payload/apks/$app.apk"
 done
 
-cp "$ROOT/sources.lock.json" "$work/goreecloud/sources.lock.json"
+LOCK="$ROOT/sources.lock.json"
+[ -f "$LOCK" ] || LOCK="$ROOT/../sources.lock.json"
+test -f "$LOCK" || {
+  echo "Missing sources.lock.json" >&2
+  exit 1
+}
+cp "$LOCK" "$work/goreecloud/sources.lock.json"
+
 (
   cd "$work"
   find payload goreecloud -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > goreecloud/SHA256SUMS
 )
 
+mkdir -p "$(dirname "$OUT")"
+OUT="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 rm -f "$OUT"
 (
   cd "$work"
