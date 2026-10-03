@@ -1,0 +1,96 @@
+#!/sbin/sh
+set -eu
+
+OUTFD="$2"
+ZIPFILE="$3"
+TMPROOT="/tmp/goreecloud-os-system-apps"
+
+ui_print() {
+  echo "ui_print $*" > "/proc/self/fd/$OUTFD"
+  echo "ui_print" > "/proc/self/fd/$OUTFD"
+}
+
+abort_install() {
+  ui_print "ERROR: $*"
+  exit 1
+}
+
+prop_any() {
+  for p in "$@"; do
+    v="$(getprop "$p" 2>/dev/null || true)"
+    [ -n "$v" ] && { echo "$v"; return 0; }
+  done
+  return 1
+}
+
+DEVICE="$(prop_any ro.product.device ro.product.vendor.device ro.product.product.device ro.build.product || true)"
+ANDROID_RELEASE="$(getprop ro.build.version.release 2>/dev/null || true)"
+LINEAGE_VERSION="$(getprop ro.lineage.version 2>/dev/null || true)"
+
+[ "$DEVICE" = "dre" ] || abort_install "This package is only for OnePlus Nord N200 (dre); detected '$DEVICE'."
+[ "$ANDROID_RELEASE" = "16" ] || abort_install "This package targets Android 16; detected '$ANDROID_RELEASE'."
+case "$LINEAGE_VERSION" in
+  23.*) ;;
+  *) abort_install "This package targets LineageOS 23.x / 23.2; detected '$LINEAGE_VERSION'." ;;
+esac
+
+ui_print "GoreeCloud OS Mobile Development system apps"
+ui_print "Target: OnePlus Nord N200 (dre), LineageOS 23.x / Android 16"
+ui_print "Mounting system and product..."
+
+mount /system 2>/dev/null || true
+mount /product 2>/dev/null || true
+
+[ -d /system ] || abort_install "/system is unavailable in recovery."
+[ -d /product ] || abort_install "/product is unavailable in recovery."
+
+rm -rf "$TMPROOT"
+mkdir -p "$TMPROOT"
+unzip -o "$ZIPFILE" 'payload/*' 'system/addon.d/*' -d "$TMPROOT" >/dev/null || abort_install "Could not extract package payload."
+
+install_app() {
+  appdir="$1"
+  apkname="$2"
+  payload="$3"
+  destdir="/product/app/$appdir"
+  mkdir -p "$destdir"
+  cp -f "$TMPROOT/payload/$payload" "$destdir/$apkname"
+  chown 0:0 "$destdir" "$destdir/$apkname" 2>/dev/null || true
+  chmod 0755 "$destdir"
+  chmod 0644 "$destdir/$apkname"
+}
+
+ui_print "Installing GoreeCloud built-in applications..."
+install_app GoreeCloudMemos GoreeCloudMemos.apk memos.apk
+install_app GoreeCloudLauncher GoreeCloudLauncher.apk launcher.apk
+install_app GoreeCloudBrowser GoreeCloudBrowser.apk browser.apk
+install_app GoreeCloudKeyboard GoreeCloudKeyboard.apk keyboard.apk
+install_app GoreeCloudGallery GoreeCloudGallery.apk gallery.apk
+install_app GoreeCloudMail GoreeCloudMail.apk mail.apk
+install_app GoreeCloudCamera GoreeCloudCamera.apk camera.apk
+install_app GoreeCloudSince GoreeCloudSince.apk since.apk
+install_app GoreeCloudClock GoreeCloudClock.apk clock.apk
+
+ui_print "Installing LineageOS OTA persistence hook..."
+mkdir -p /system/addon.d
+cp -f "$TMPROOT/system/addon.d/99-goreecloud-system-apps.sh" /system/addon.d/99-goreecloud-system-apps.sh
+chown 0:0 /system/addon.d/99-goreecloud-system-apps.sh 2>/dev/null || true
+chmod 0755 /system/addon.d/99-goreecloud-system-apps.sh
+
+if command -v restorecon >/dev/null 2>&1; then
+  restorecon -RF /product/app/GoreeCloudMemos \
+    /product/app/GoreeCloudLauncher \
+    /product/app/GoreeCloudBrowser \
+    /product/app/GoreeCloudKeyboard \
+    /product/app/GoreeCloudGallery \
+    /product/app/GoreeCloudMail \
+    /product/app/GoreeCloudCamera \
+    /product/app/GoreeCloudSince \
+    /product/app/GoreeCloudClock \
+    /system/addon.d/99-goreecloud-system-apps.sh 2>/dev/null || true
+fi
+
+sync
+ui_print "GoreeCloud system applications installed."
+ui_print "Reboot Android, then select GoreeCloud Launcher and GoreeCloud Keyboard when prompted/configuring defaults."
+exit 0
