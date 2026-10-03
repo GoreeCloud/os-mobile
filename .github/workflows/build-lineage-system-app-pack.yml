@@ -1,6 +1,11 @@
 name: Build Lineage system app pack inputs
 
 on:
+  pull_request:
+    paths:
+      - "packaging/lineage-system-app-pack/**"
+      - "scripts/verify_lineage_system_app_pack.py"
+      - ".github/workflows/build-lineage-system-app-pack.yml"
   push:
     branches: [main]
     paths:
@@ -85,7 +90,7 @@ jobs:
 
       - name: Install Android SDK platforms
         shell: bash
-        run: sdkmanager "platforms;android-35" "platforms;android-36" "platforms;android-37" "build-tools;37.0.0"
+        run: sdkmanager --channel=3 "platforms;android-35" "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0"
 
       - name: Configure Gradle 8.11.1
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
@@ -131,7 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact-inputs/apks artifact-inputs/installer
-          AAPT="$ANDROID_HOME/build-tools/37.0.0/aapt"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
 
           stage() {
             local name="$1" package="$2" root="$3"
