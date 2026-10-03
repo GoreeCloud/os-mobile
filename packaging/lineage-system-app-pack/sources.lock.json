@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "generated": "2026-10-03",
+  "target": {
+    "device": "dre",
+    "accepted_device_aliases": ["dre", "OnePlusN200", "OnePlusN200TMO"],
+    "lineage": "23.2",
+    "android_sdk": 36,
+    "primary_abi": "arm64-v8a"
+  },
+  "sources": {
+    "GoreeCloud/android-app-defaults": "b433104499372248d03cd0fed89fa729b6db1d77",
+    "GoreeCloud/browser": "367af76a2d95c1183c2419189b1c7b1e5376ae63",
+    "GoreeCloud/memos": "6e0e4f9e33ad2f1b5ae7d1d43f68a8f610b73884",
+    "GoreeCloud/mail": "a1bcfaed0a88faaad7b2beb6bf67d800964de0e9"
+  },
+  "packages": {
+    "GoreeCloudMemos": "com.goreecloud.memos",
+    "GoreeCloudLauncher": "com.goreecloud.launcher",
+    "GoreeCloudBrowser": "io.goreecloud.browser",
+    "GoreeCloudKeyboard": "com.goreecloud.keyboard",
+    "GoreeCloudGallery": "com.goreecloud.gallery",
+    "GoreeCloudMail": "com.goreecloud.mail",
+    "GoreeCloudCamera": "com.goreecloud.camera",
+    "GoreeCloudSince": "com.goreecloud.since",
+    "GoreeCloudClock": "com.goreecloud.clock"
+  }
+}
