@@ -29,6 +29,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/launcher/app/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.launcher
           - id: gallery
             display_name: GoreeCloud Gallery
@@ -39,6 +40,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/gallery/native/app/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.gallery
           - id: keyboard
             display_name: GoreeCloud Keyboard
@@ -49,6 +51,7 @@ jobs:
             sdk_packages: "platforms;android-35 build-tools;35.0.0"
             task: ":android:app:assembleRelease"
             apk_glob: "apps/keyboard/android/app/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.keyboard
           - id: camera
             display_name: GoreeCloud Camera
@@ -59,6 +62,7 @@ jobs:
             sdk_packages: "platforms;android-37.0 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/camera/app/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.camera
           - id: since
             display_name: GoreeCloud Since
@@ -69,6 +73,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":apps:since:assembleRelease"
             apk_glob: "apps/since/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.since
           - id: clock
             display_name: GoreeCloud Clock
@@ -79,6 +84,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":apps:clock:assembleRelease"
             apk_glob: "apps/clock/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.clock
           - id: browser
             display_name: GoreeCloud Browser
@@ -89,6 +95,7 @@ jobs:
             sdk_packages: "platforms;android-35 build-tools;35.0.0"
             task: ":app:assembleRelease"
             apk_glob: "apps/android/app/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: io.goreecloud.browser
           - id: memos
             display_name: GoreeCloud Memos
@@ -99,6 +106,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "android/app/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.memos
           - id: mail
             display_name: GoreeCloud Mail
@@ -109,6 +117,7 @@ jobs:
             sdk_packages: "platforms;android-36 build-tools;36.0.0"
             task: ":app:assembleRelease"
             apk_glob: "clients/android/app/build/outputs/apk/release/*.apk"
+            version_code: 2026100301
             package_id: com.goreecloud.mail
 
     steps:
@@ -151,6 +160,34 @@ jobs:
         with:
           gradle-version: "${{ matrix.gradle_version }}"
           cache-provider: basic
+
+      - name: Set monotonic Development system versionCode
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "GOREECLOUD_DEV_VERSION_CODE=${{ matrix.version_code }}" >> "$GITHUB_ENV"
+          echo "GOREECLOUD_GALLERY_DEV_VERSION_CODE=${{ matrix.version_code }}" >> "$GITHUB_ENV"
+
+          case "${{ matrix.id }}" in
+            keyboard)
+              sed -i -E 's/versionCode = [0-9]+/versionCode = ${{ matrix.version_code }}/' src/apps/keyboard/android/app/build.gradle.kts
+              ;;
+            camera)
+              sed -i -E 's/versionCode = [0-9]+/versionCode = ${{ matrix.version_code }}/' src/apps/camera/app/build.gradle.kts
+              ;;
+            clock)
+              sed -i -E 's/versionCode = [0-9]+/versionCode = ${{ matrix.version_code }}/' src/apps/clock/build.gradle.kts
+              ;;
+            browser)
+              sed -i -E 's/versionCode = [0-9]+/versionCode = ${{ matrix.version_code }}/' src/apps/android/app/build.gradle.kts
+              ;;
+            memos)
+              sed -i -E 's/versionCode = [0-9]+/versionCode = ${{ matrix.version_code }}/' src/android/app/build.gradle.kts
+              ;;
+            mail)
+              sed -i -E 's/versionCode = [0-9]+/versionCode = ${{ matrix.version_code }}/' src/clients/android/app/build.gradle.kts
+              ;;
+          esac
 
       - name: Disable release shrinking for Development system packaging
         if: matrix.id == 'launcher' || matrix.id == 'mail'
@@ -198,13 +235,16 @@ jobs:
           "$ZIPALIGN" -f -p 4 "$APK" "staged/${{ matrix.id }}.apk"
           BADGING="$("$AAPT" dump badging "staged/${{ matrix.id }}.apk" | head -n 1)"
           PACKAGE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.* versionCode='\([^']*\)'.*/\1/p")"
           test "$PACKAGE" = "${{ matrix.package_id }}"
+          test "$VERSION_CODE" = "${{ matrix.version_code }}"
 
           cat > "staged/${{ matrix.id }}.provenance.txt" <<EOF
           display_name=${{ matrix.display_name }}
           repository=${{ matrix.repository }}
           source_revision=${{ matrix.revision }}
           package_id=${{ matrix.package_id }}
+          version_code=${{ matrix.version_code }}
           build_type=release-identity-development-system-packaging
           signing_state=unsigned
           minification=disabled-for-development-system-packaging-where-required
