@@ -254,10 +254,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Check out package source
+      - name: Check out exact package source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Verify exact package source
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
 
       - name: Set up Android SDK for framework overlay
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
@@ -314,7 +322,7 @@ jobs:
           cat > bundle/provenance/gallery-framework-overlay.provenance.txt <<EOF
           display_name=GoreeCloud Gallery framework overlay
           repository=GoreeCloud/os-mobile
-          source_revision=$GITHUB_SHA
+          source_revision=$(git rev-parse HEAD)
           package_id=com.goreecloud.overlay.gallery.frameworksbase
           version_code=2026100302
           target_package=android
