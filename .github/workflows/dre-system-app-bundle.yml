@@ -252,7 +252,7 @@ jobs:
     name: Bundle unsigned canonical APKs
     needs: build-app
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out exact package source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -266,6 +266,12 @@ jobs:
           set -euo pipefail
           EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
           test "$(git rev-parse HEAD)" = "$EXPECTED"
+
+      - name: Set up Java 17 for package-assembly smoke test
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
 
       - name: Set up Android SDK for framework overlay
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
@@ -349,6 +355,51 @@ jobs:
           Contains nine canonical application APKs plus the GoreeCloud static framework overlay APK, aligned but intentionally unsigned.
           All ten APKs require the protected GoreeCloud Development signing identity before device installation.
           EOF
+
+      - name: Smoke-test protected signed-package assembler with ephemeral key
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 0755 packaging/dre-system-apps/tools/assemble-signed-package.sh
+          bash -n packaging/dre-system-apps/tools/assemble-signed-package.sh
+
+          TEST_SIGNING_DIR="$RUNNER_TEMP/goreecloud-dre-test-signing"
+          TEST_OUTPUT="$RUNNER_TEMP/GoreeCloud-OS-Mobile-dre-TEST-ONLY.zip"
+          TEST_PASS="goreecloud-ci-ephemeral-test-only"
+          rm -rf "$TEST_SIGNING_DIR" "$TEST_OUTPUT"
+          mkdir -p "$TEST_SIGNING_DIR"
+          printf '%s\n' "$TEST_PASS" > "$TEST_SIGNING_DIR/pass"
+          chmod 0600 "$TEST_SIGNING_DIR/pass"
+
+          keytool -genkeypair \
+            -alias goreecloud-ci-test \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 1 \
+            -storetype PKCS12 \
+            -keystore "$TEST_SIGNING_DIR/test.p12" \
+            -storepass "$TEST_PASS" \
+            -keypass "$TEST_PASS" \
+            -dname "CN=GoreeCloud CI Package Test, OU=Ephemeral Test, O=GoreeCloud, C=US" \
+            -noprompt
+          chmod 0600 "$TEST_SIGNING_DIR/test.p12"
+
+          packaging/dre-system-apps/tools/assemble-signed-package.sh \
+            --unsigned-bundle bundle \
+            --keystore "$TEST_SIGNING_DIR/test.p12" \
+            --key-alias goreecloud-ci-test \
+            --ks-pass-file "$TEST_SIGNING_DIR/pass" \
+            --ephemeral-test-signing \
+            --source-revision "$(git rev-parse HEAD)" \
+            --output "$TEST_OUTPUT"
+
+          unzip -tq "$TEST_OUTPUT" >/dev/null
+          unzip -l "$TEST_OUTPUT" | grep -Fq 'TEST-ONLY-NOT-FOR-INSTALLATION.txt'
+          unzip -l "$TEST_OUTPUT" | grep -Fq 'payload/gallery-framework-overlay.apk'
+          unzip -l "$TEST_OUTPUT" | grep -Fq 'product/bin/goreecloud-default-apps.sh'
+          unzip -l "$TEST_OUTPUT" | grep -Fq 'PHYSICAL-VALIDATION.md'
+
+          rm -rf "$TEST_SIGNING_DIR" "$TEST_OUTPUT"
 
       - name: Upload unsigned signing input bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
