@@ -368,8 +368,9 @@ jobs:
           TEST_PASS="goreecloud-ci-ephemeral-test-only"
           rm -rf "$TEST_SIGNING_DIR" "$TEST_OUTPUT"
           mkdir -p "$TEST_SIGNING_DIR"
-          printf '%s\n' "$TEST_PASS" > "$TEST_SIGNING_DIR/pass"
-          chmod 0600 "$TEST_SIGNING_DIR/pass"
+          printf '%s\n' "$TEST_PASS" > "$TEST_SIGNING_DIR/ks-pass"
+          printf '%s\n' "$TEST_PASS" > "$TEST_SIGNING_DIR/key-pass"
+          chmod 0600 "$TEST_SIGNING_DIR/ks-pass" "$TEST_SIGNING_DIR/key-pass"
 
           keytool -genkeypair \
             -alias goreecloud-ci-test \
@@ -388,7 +389,8 @@ jobs:
             --unsigned-bundle bundle \
             --keystore "$TEST_SIGNING_DIR/test.p12" \
             --key-alias goreecloud-ci-test \
-            --ks-pass-file "$TEST_SIGNING_DIR/pass" \
+            --ks-pass-file "$TEST_SIGNING_DIR/ks-pass" \
+            --key-pass-file "$TEST_SIGNING_DIR/key-pass" \
             --ephemeral-test-signing \
             --source-revision "$(git rev-parse HEAD)" \
             --output "$TEST_OUTPUT"
