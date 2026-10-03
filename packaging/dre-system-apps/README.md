@@ -32,7 +32,7 @@ Final signing is intentionally outside public CI. The nine application APKs and 
 
 `tools/assemble-signed-package.sh` is the canonical local assembler for the signed Development recovery ZIP. It validates the unsigned artifact checksums, signs all ten APK inputs, verifies that every APK uses the same certificate, verifies package identity and the common Development versionCode, builds the recovery ZIP from the repository packaging source, preserves the default-app integration files, emits relative signed-payload checksums and public certificate metadata, and validates the resulting archive.
 
-The assembler deliberately does **not** accept a password value on its command line. It requires protected local password files and rejects group/world-readable password files. Normal Development assembly also requires the expected public certificate SHA-256 fingerprint, so an accidental signer change fails closed.
+The assembler deliberately does **not** accept a password value on its command line. It requires the keystore and local password files to be protected from group/world access. Normal Development assembly also requires the expected public certificate SHA-256 fingerprint, so an accidental signer change fails closed. The exact packaging subtree must be clean and match the requested source revision before assembly proceeds. Ephemeral CI output is classified as `signed-test-only` in provenance rather than as a Development-signed package.
 
 Example shape:
 
