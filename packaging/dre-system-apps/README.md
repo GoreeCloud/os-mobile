@@ -28,6 +28,26 @@ The CI workflow `.github/workflows/dre-system-app-bundle.yml` pins exact source 
 
 Final signing is intentionally outside public CI. The nine application APKs and the framework-overlay APK must all be signed with the persistent protected GoreeCloud OS Development signing identity before recovery-ZIP assembly. The private key must never be stored in this public repository or included in a flashable package.
 
+## Protected signed-package assembly
+
+`tools/assemble-signed-package.sh` is the canonical local assembler for the signed Development recovery ZIP. It validates the unsigned artifact checksums, signs all ten APK inputs, verifies that every APK uses the same certificate, verifies package identity and the common Development versionCode, builds the recovery ZIP from the repository packaging source, preserves the default-app integration files, emits relative signed-payload checksums and public certificate metadata, and validates the resulting archive.
+
+The assembler deliberately does **not** accept a password value on its command line. It requires protected local password files and rejects group/world-readable password files. Normal Development assembly also requires the expected public certificate SHA-256 fingerprint, so an accidental signer change fails closed.
+
+Example shape:
+
+```sh
+packaging/dre-system-apps/tools/assemble-signed-package.sh \
+  --unsigned-bundle <exact-head-unsigned-bundle.zip> \
+  --keystore <protected-development-keystore> \
+  --key-alias <development-key-alias> \
+  --ks-pass-file <protected-password-file> \
+  --expected-cert-sha256 <approved-certificate-sha256> \
+  --output <signed-development-recovery.zip>
+```
+
+Public CI uses the same assembler only with a short-lived, generated test key and an output filename containing `TEST-ONLY`. That bounded smoke test verifies package assembly but does not create or publish an update-compatible Development package and does not place a persistent private signing identity in CI.
+
 ## Default Launcher and Gallery behavior
 
 GoreeCloud OS Mobile intentionally makes the GoreeCloud applications the user-facing defaults on the qualification device:
