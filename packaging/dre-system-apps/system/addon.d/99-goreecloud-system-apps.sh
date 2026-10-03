@@ -2,7 +2,8 @@
 #
 # ADDOND_VERSION=3
 #
-# Preserve GoreeCloud OS Mobile built-in applications across LineageOS A/B OTAs.
+# Preserve GoreeCloud OS Mobile built-in applications and default-app integration across
+# LineageOS A/B OTAs.
 #
 
 . /tmp/backuptool.functions
@@ -18,6 +19,9 @@ product/app/GoreeCloudMail/GoreeCloudMail.apk
 product/app/GoreeCloudCamera/GoreeCloudCamera.apk
 product/app/GoreeCloudSince/GoreeCloudSince.apk
 product/app/GoreeCloudClock/GoreeCloudClock.apk
+product/overlay/GoreeCloudGalleryFrameworksBaseOverlay.apk
+product/bin/goreecloud-default-apps.sh
+product/etc/init/goreecloud-default-apps.rc
 FILES
 }
 
@@ -34,7 +38,12 @@ case "$1" in
       [ -e "$C/$S/$FILE" ] && restore_file "$S/$FILE" "$R"
     done
   ;;
-  pre-backup|post-backup|pre-restore|post-restore)
+  post-restore)
+    chmod 0644 "$S/product/overlay/GoreeCloudGalleryFrameworksBaseOverlay.apk" 2>/dev/null || true
+    chmod 0755 "$S/product/bin/goreecloud-default-apps.sh" 2>/dev/null || true
+    chmod 0644 "$S/product/etc/init/goreecloud-default-apps.rc" 2>/dev/null || true
+  ;;
+  pre-backup|post-backup|pre-restore)
     :
   ;;
 esac
