@@ -1,0 +1,259 @@
+name: GoreeCloud OS dre system app bundle
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: goreecloud-os-dre-system-apps-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-app:
+    name: Build ${{ matrix.display_name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: launcher
+            display_name: GoreeCloud Launcher
+            repository: GoreeCloud/android-app-defaults
+            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            project_dir: apps/launcher
+            gradle_version: 8.11.1
+            sdk_packages: "platforms;android-36 build-tools;36.0.0"
+            task: ":app:assembleRelease"
+            apk_glob: "apps/launcher/app/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.launcher
+          - id: gallery
+            display_name: GoreeCloud Gallery
+            repository: GoreeCloud/android-app-defaults
+            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            project_dir: apps/gallery/native
+            gradle_version: 8.14.3
+            sdk_packages: "platforms;android-36 build-tools;36.0.0"
+            task: ":app:assembleRelease"
+            apk_glob: "apps/gallery/native/app/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.gallery
+          - id: keyboard
+            display_name: GoreeCloud Keyboard
+            repository: GoreeCloud/android-app-defaults
+            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            project_dir: apps/keyboard
+            gradle_version: 8.11.1
+            sdk_packages: "platforms;android-35 build-tools;35.0.0"
+            task: ":android:app:assembleRelease"
+            apk_glob: "apps/keyboard/android/app/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.keyboard
+          - id: camera
+            display_name: GoreeCloud Camera
+            repository: GoreeCloud/android-app-defaults
+            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            project_dir: apps/camera
+            gradle_version: 9.6.0
+            sdk_packages: "platforms;android-37.0 build-tools;36.0.0"
+            task: ":app:assembleRelease"
+            apk_glob: "apps/camera/app/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.camera
+          - id: since
+            display_name: GoreeCloud Since
+            repository: GoreeCloud/android-app-defaults
+            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            project_dir: .
+            gradle_version: 8.11.1
+            sdk_packages: "platforms;android-36 build-tools;36.0.0"
+            task: ":apps:since:assembleRelease"
+            apk_glob: "apps/since/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.since
+          - id: clock
+            display_name: GoreeCloud Clock
+            repository: GoreeCloud/android-app-defaults
+            revision: b433104499372248d03cd0fed89fa729b6db1d77
+            project_dir: .
+            gradle_version: 8.11.1
+            sdk_packages: "platforms;android-36 build-tools;36.0.0"
+            task: ":apps:clock:assembleRelease"
+            apk_glob: "apps/clock/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.clock
+          - id: browser
+            display_name: GoreeCloud Browser
+            repository: GoreeCloud/browser
+            revision: 367af76a2d95c1183c2419189b1c7b1e5376ae63
+            project_dir: apps/android
+            gradle_version: 8.9
+            sdk_packages: "platforms;android-35 build-tools;35.0.0"
+            task: ":app:assembleRelease"
+            apk_glob: "apps/android/app/build/outputs/apk/release/*.apk"
+            package_id: io.goreecloud.browser
+          - id: memos
+            display_name: GoreeCloud Memos
+            repository: GoreeCloud/memos
+            revision: 6e0e4f9e33ad2f1b5ae7d1d43f68a8f610b73884
+            project_dir: android
+            gradle_version: 8.11.1
+            sdk_packages: "platforms;android-36 build-tools;36.0.0"
+            task: ":app:assembleRelease"
+            apk_glob: "android/app/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.memos
+          - id: mail
+            display_name: GoreeCloud Mail
+            repository: GoreeCloud/mail
+            revision: a1bcfaed0a88faaad7b2beb6bf67d800964de0e9
+            project_dir: clients/android
+            gradle_version: 8.11.1
+            sdk_packages: "platforms;android-36 build-tools;36.0.0"
+            task: ":app:assembleRelease"
+            apk_glob: "clients/android/app/build/outputs/apk/release/*.apk"
+            package_id: com.goreecloud.mail
+
+    steps:
+      - name: Check out exact application source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.revision }}
+          path: src
+          persist-credentials: false
+
+      - name: Verify exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C src rev-parse HEAD)" = "${{ matrix.revision }}"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: "15859902"
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+
+      - name: Install compile SDK and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --channel=3 ${{ matrix.sdk_packages }}
+
+      - name: Set up Gradle ${{ matrix.gradle_version }}
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "${{ matrix.gradle_version }}"
+          cache-provider: basic
+
+      - name: Disable release shrinking for Development system packaging
+        if: matrix.id == 'launcher' || matrix.id == 'mail'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.id }}" = "launcher" ]; then
+            sed -i 's/isMinifyEnabled = true/isMinifyEnabled = false/' src/apps/launcher/app/build.gradle.kts
+          else
+            sed -i 's/isMinifyEnabled = true/isMinifyEnabled = false/' src/clients/android/app/build.gradle.kts
+          fi
+
+      - name: Assemble canonical release-identity APK
+        working-directory: src/${{ matrix.project_dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace ${{ matrix.task }}
+
+      - name: Stage and validate unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          matches=(src/${{ matrix.apk_glob }})
+          if [ "${#matches[@]}" -ne 1 ]; then
+            printf 'Expected exactly one APK, found %s\n' "${#matches[@]}"
+            printf '%s\n' "${matches[@]}"
+            exit 1
+          fi
+
+          APK="${matches[0]}"
+          mkdir -p staged
+          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          if [ ! -x "$ZIPALIGN" ]; then
+            ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign -print | sort -V | tail -n 1)"
+          fi
+          if [ ! -x "$AAPT" ]; then
+            AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -n 1)"
+          fi
+          test -x "$ZIPALIGN"
+          test -x "$AAPT"
+
+          "$ZIPALIGN" -f -p 4 "$APK" "staged/${{ matrix.id }}.apk"
+          BADGING="$("$AAPT" dump badging "staged/${{ matrix.id }}.apk" | head -n 1)"
+          PACKAGE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          test "$PACKAGE" = "${{ matrix.package_id }}"
+
+          cat > "staged/${{ matrix.id }}.provenance.txt" <<EOF
+          display_name=${{ matrix.display_name }}
+          repository=${{ matrix.repository }}
+          source_revision=${{ matrix.revision }}
+          package_id=${{ matrix.package_id }}
+          build_type=release-identity-development-system-packaging
+          signing_state=unsigned
+          minification=disabled-for-development-system-packaging-where-required
+          EOF
+          sha256sum "staged/${{ matrix.id }}.apk" > "staged/${{ matrix.id }}.sha256"
+
+      - name: Upload unsigned aligned APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: goreecloud-os-${{ matrix.id }}-unsigned
+          if-no-files-found: error
+          retention-days: 7
+          path: staged/*
+
+  bundle:
+    name: Bundle unsigned canonical APKs
+    needs: build-app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download all unsigned APK artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: goreecloud-os-*-unsigned
+          path: artifacts
+
+      - name: Assemble unsigned signing input bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/apks bundle/provenance
+          find artifacts -type f -name '*.apk' -exec cp {} bundle/apks/ \;
+          find artifacts -type f -name '*.provenance.txt' -exec cp {} bundle/provenance/ \;
+          test "$(find bundle/apks -type f -name '*.apk' | wc -l)" -eq 9
+          (
+            cd bundle/apks
+            sha256sum *.apk | sort > ../SHA256SUMS-UNSIGNED
+          )
+          cat > bundle/README.txt <<'EOF'
+          GoreeCloud OS Mobile Development system-app signing input.
+          Target baseline: OnePlus Nord N200 (dre), LineageOS 23.2 / Android 16.
+          Contains nine canonical-package APKs, aligned but intentionally unsigned.
+          These APKs require a protected GoreeCloud Development signing identity before device installation.
+          EOF
+
+      - name: Upload unsigned signing input bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: goreecloud-os-dre-system-apps-unsigned
+          if-no-files-found: error
+          retention-days: 7
+          path: bundle/**
