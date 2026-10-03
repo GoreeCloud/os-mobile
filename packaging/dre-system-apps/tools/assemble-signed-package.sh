@@ -267,13 +267,36 @@ CERT_SHA256=""
 CERT_DN=""
 for apk in "${EXPECTED_APKS[@]}"; do
   VERIFY_OUTPUT="$WORK/verify-${apk}.txt"
-  "$APKSIGNER" verify --verbose --print-certs "$SIGNED_DIR/$apk" > "$VERIFY_OUTPUT"
-  THIS_CERT="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$VERIFY_OUTPUT" | head -n 1)"
+  "$APKSIGNER" verify --verbose --print-certs "$SIGNED_DIR/$apk" > "$VERIFY_OUTPUT" 2>&1
+
+  THIS_CERT="$(
+    sed -n -E 's/^Signer #[0-9]+ certificate SHA-256 digest:[[:space:]]*//p' "$VERIFY_OUTPUT" \
+      | head -n 1
+  )"
+  if [ -z "$THIS_CERT" ]; then
+    THIS_CERT="$(
+      sed -n -E 's/^Signer certificate SHA-256 digest:[[:space:]]*//p' "$VERIFY_OUTPUT" \
+        | head -n 1
+    )"
+  fi
   THIS_CERT="$(normalize_sha256 "$THIS_CERT")"
-  [ "${#THIS_CERT}" -eq 64 ] || fail "Could not read signing certificate SHA-256 from $apk"
+  if [ "${#THIS_CERT}" -ne 64 ]; then
+    grep -E 'certificate (SHA-256 digest|DN):' "$VERIFY_OUTPUT" >&2 || true
+    fail "Could not read signing certificate SHA-256 from $apk"
+  fi
+
   if [ -z "$CERT_SHA256" ]; then
     CERT_SHA256="$THIS_CERT"
-    CERT_DN="$(sed -n 's/^Signer #1 certificate DN: //p' "$VERIFY_OUTPUT" | head -n 1)"
+    CERT_DN="$(
+      sed -n -E 's/^Signer #[0-9]+ certificate DN:[[:space:]]*//p' "$VERIFY_OUTPUT" \
+        | head -n 1
+    )"
+    if [ -z "$CERT_DN" ]; then
+      CERT_DN="$(
+        sed -n -E 's/^Signer certificate DN:[[:space:]]*//p' "$VERIFY_OUTPUT" \
+          | head -n 1
+      )"
+    fi
   else
     [ "$THIS_CERT" = "$CERT_SHA256" ] || fail "Signer mismatch detected for $apk"
   fi
