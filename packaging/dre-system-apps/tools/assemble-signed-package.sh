@@ -125,6 +125,7 @@ done
 [ -n "$KS_PASS_FILE" ] || fail "--ks-pass-file is required"
 [ -n "$KEY_PASS_FILE" ] || fail "--key-pass-file is required"
 [ -n "$OUTPUT" ] || fail "--output is required"
+require_secret_file "$KEYSTORE" "Keystore"
 require_secret_file "$KS_PASS_FILE" "Keystore password file"
 require_secret_file "$KEY_PASS_FILE" "Key password file"
 
