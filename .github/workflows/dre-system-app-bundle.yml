@@ -400,8 +400,15 @@ jobs:
           unzip -l "$TEST_OUTPUT" | grep -Fq 'payload/gallery-framework-overlay.apk'
           unzip -l "$TEST_OUTPUT" | grep -Fq 'product/bin/goreecloud-default-apps.sh'
           unzip -l "$TEST_OUTPUT" | grep -Fq 'PHYSICAL-VALIDATION.md'
+          TEST_PROVENANCE_DIR="$RUNNER_TEMP/goreecloud-dre-test-provenance"
+          rm -rf "$TEST_PROVENANCE_DIR"
+          mkdir -p "$TEST_PROVENANCE_DIR"
+          unzip -q "$TEST_OUTPUT" 'provenance/*.provenance.txt' -d "$TEST_PROVENANCE_DIR"
+          test "$(grep -hFx 'signing_state=signed-test-only' "$TEST_PROVENANCE_DIR"/provenance/*.provenance.txt | wc -l)" -eq 10
+          ! grep -hFxq 'signing_state=signed-development' "$TEST_PROVENANCE_DIR"/provenance/*.provenance.txt
+          unzip -p "$TEST_OUTPUT" README.txt | grep -Fq 'TEST-ONLY package-assembly artifact'
 
-          rm -rf "$TEST_SIGNING_DIR" "$TEST_OUTPUT"
+          rm -rf "$TEST_SIGNING_DIR" "$TEST_PROVENANCE_DIR" "$TEST_OUTPUT"
 
       - name: Upload unsigned signing input bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
