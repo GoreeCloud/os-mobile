@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android's SYSTEM_GALLERY role is static and only its configured default holder qualifies. -->
+    <string name="config_systemGallery" translatable="false">com.goreecloud.gallery</string>
+</resources>
