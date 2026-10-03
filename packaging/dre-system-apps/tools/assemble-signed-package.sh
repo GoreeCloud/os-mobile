@@ -10,7 +10,7 @@ Usage:
     --keystore PATH \
     --key-alias ALIAS \
     --ks-pass-file PATH \
-    [--key-pass-file PATH] \
+    --key-pass-file PATH \
     [--expected-cert-sha256 HEX] \
     [--source-revision GIT_SHA] \
     [--ephemeral-test-signing] \
