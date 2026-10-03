@@ -162,6 +162,12 @@ fi
 [ -n "$SOURCE_REVISION" ] || fail "Could not determine source revision; pass --source-revision"
 CHECKOUT_REVISION="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
 [ "$CHECKOUT_REVISION" = "$SOURCE_REVISION" ] || fail "Packaging checkout does not match the requested source revision"
+git -C "$REPO_ROOT" -c core.fileMode=false diff --quiet -- packaging/dre-system-apps \
+  || fail "Packaging source has uncommitted tracked changes"
+git -C "$REPO_ROOT" -c core.fileMode=false diff --cached --quiet -- packaging/dre-system-apps \
+  || fail "Packaging source has staged changes"
+[ -z "$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- packaging/dre-system-apps)" ] \
+  || fail "Packaging source has untracked files"
 
 OUTPUT_DIR="$(dirname -- "$OUTPUT")"
 OUTPUT_NAME="$(basename -- "$OUTPUT")"
@@ -331,12 +337,18 @@ for apk in "${EXPECTED_APKS[@]}"; do
   cp -f "$SIGNED_DIR/$apk" "$STAGE/payload/$apk"
 done
 
+if [ "$EPHEMERAL_TEST_SIGNING" -eq 1 ]; then
+  PROVENANCE_SIGNING_STATE="signed-test-only"
+else
+  PROVENANCE_SIGNING_STATE="signed-development"
+fi
+
 for src in "$INPUT_ROOT"/provenance/*.provenance.txt; do
   base="$(basename "$src")"
-  awk -v cert="$CERT_SHA256" '
+  awk -v cert="$CERT_SHA256" -v signing_state="$PROVENANCE_SIGNING_STATE" '
     BEGIN { replaced = 0 }
     /^signing_state=/ {
-      print "signing_state=signed-development"
+      print "signing_state=" signing_state
       print "signing_certificate_sha256=" cert
       replaced = 1
       next
@@ -344,7 +356,7 @@ for src in "$INPUT_ROOT"/provenance/*.provenance.txt; do
     { print }
     END {
       if (!replaced) {
-        print "signing_state=signed-development"
+        print "signing_state=" signing_state
         print "signing_certificate_sha256=" cert
       }
     }
@@ -358,8 +370,10 @@ done
 
 if [ "$EPHEMERAL_TEST_SIGNING" -eq 1 ]; then
   SIGNING_LABEL="Ephemeral CI package-assembly test identity"
+  PACKAGE_CLASSIFICATION="TEST-ONLY package-assembly artifact"
 else
   SIGNING_LABEL="GoreeCloud OS Development Android signing identity"
+  PACKAGE_CLASSIFICATION="Development system-app bundle"
 fi
 
 cat > "$STAGE/SIGNING-CERTIFICATE.txt" <<EOF_CERT
@@ -370,7 +384,7 @@ Private key included in this package: No
 EOF_CERT
 
 cat > "$STAGE/README.txt" <<EOF_README
-GoreeCloud OS Mobile Development system-app bundle
+GoreeCloud OS Mobile $PACKAGE_CLASSIFICATION
 Target: OnePlus Nord N200 (dre)
 Baseline: LineageOS 23.2 / Android 16
 System app versionCode: $VERSION_CODE
