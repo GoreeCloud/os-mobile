@@ -1,0 +1,116 @@
+#!/sbin/sh
+# GoreeCloud OS Mobile LineageOS 23.2 recovery installer.
+# update-binary protocol: $1=API, $2=output fd, $3=zip path.
+
+OUTFD="$2"
+ZIPFILE="$3"
+TMP="/tmp/goreecloud-os-system-pack.$$"
+
+ui_print() {
+  echo "ui_print $*" >&"$OUTFD"
+  echo "ui_print" >&"$OUTFD"
+}
+
+abort() {
+  ui_print "ERROR: $*"
+  rm -rf "$TMP"
+  exit 1
+}
+
+prop() {
+  getprop "$1" 2>/dev/null | tr -d '\r'
+}
+
+has_device() {
+  case "$1" in
+    dre|OnePlusN200|OnePlusN200TMO) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+ui_print "GoreeCloud OS Mobile — Lineage System App Pack"
+ui_print "Target: OnePlus Nord N200 (dre), LineageOS 23.2 / Android 16"
+
+DEVICE="$(prop ro.product.device)"
+[ -n "$DEVICE" ] || DEVICE="$(prop ro.build.product)"
+has_device "$DEVICE" || abort "Unsupported device '$DEVICE'. Expected dre / OnePlusN200 / OnePlusN200TMO."
+
+SDK="$(prop ro.build.version.sdk)"
+[ "$SDK" = "36" ] || abort "Unsupported Android SDK '$SDK'. Expected 36 (Android 16)."
+
+LINEAGE="$(prop ro.lineage.version)"
+case "$LINEAGE" in
+  23.2*) ;;
+  *) abort "Unsupported LineageOS '$LINEAGE'. Expected 23.2.x." ;;
+esac
+
+ABI="$(prop ro.product.cpu.abi)"
+[ "$ABI" = "arm64-v8a" ] || abort "Unsupported primary ABI '$ABI'. Expected arm64-v8a."
+
+command -v unzip >/dev/null 2>&1 || abort "Recovery does not provide unzip."
+mkdir -p "$TMP" || abort "Unable to create temporary staging directory."
+unzip -o "$ZIPFILE" "payload/*" -d "$TMP" >/dev/null || abort "Unable to extract package payload."
+
+# Ask recovery to mount the dynamic partitions. Lineage recovery knows its fstab.
+mount /product >/dev/null 2>&1 || true
+mount /system >/dev/null 2>&1 || true
+mount /system_root >/dev/null 2>&1 || true
+mount /mnt/system >/dev/null 2>&1 || true
+
+PRODUCT_ROOT=""
+for P in /product /mnt/system/product /system/product /system_root/product; do
+  if [ -d "$P/etc" ] || [ -f "$P/build.prop" ]; then
+    PRODUCT_ROOT="$P"
+    break
+  fi
+done
+[ -n "$PRODUCT_ROOT" ] || abort "Unable to locate the mounted product partition."
+
+SYSTEM_ROOT=""
+for S in /mnt/system/system /system_root/system /system; do
+  if [ -d "$S/etc" ] || [ -f "$S/build.prop" ]; then
+    SYSTEM_ROOT="$S"
+    break
+  fi
+done
+[ -n "$SYSTEM_ROOT" ] || abort "Unable to locate the mounted system partition."
+
+mount -o remount,rw "$PRODUCT_ROOT" >/dev/null 2>&1 ||   mount -o rw,remount "$PRODUCT_ROOT" >/dev/null 2>&1 ||   abort "product is not writable; refusing a partial install."
+
+# system must be writable so addon.d can preserve the product files across OTA.
+SYSTEM_MOUNT="$(dirname "$SYSTEM_ROOT")"
+[ "$SYSTEM_ROOT" = "/system" ] && SYSTEM_MOUNT="/system"
+mount -o remount,rw "$SYSTEM_MOUNT" >/dev/null 2>&1 ||   mount -o rw,remount "$SYSTEM_MOUNT" >/dev/null 2>&1 ||   abort "system is not writable; addon.d preservation cannot be installed safely."
+
+APKS="$TMP/payload/apks"
+for NAME in   GoreeCloudMemos GoreeCloudLauncher GoreeCloudBrowser GoreeCloudKeyboard   GoreeCloudGallery GoreeCloudMail GoreeCloudCamera GoreeCloudSince GoreeCloudClock
+do
+  SRC="$APKS/$NAME.apk"
+  [ -s "$SRC" ] || abort "Missing APK payload: $NAME.apk"
+  DESTDIR="$PRODUCT_ROOT/app/$NAME"
+  rm -rf "$DESTDIR"
+  mkdir -p "$DESTDIR" || abort "Unable to create $DESTDIR"
+  cp "$SRC" "$DESTDIR/$NAME.apk" || abort "Unable to install $NAME"
+  chown root:root "$DESTDIR" "$DESTDIR/$NAME.apk"
+  chmod 0755 "$DESTDIR"
+  chmod 0644 "$DESTDIR/$NAME.apk"
+done
+
+ADDON_SRC="$TMP/payload/addon.d/30-goreecloud-os-apps.sh"
+[ -s "$ADDON_SRC" ] || abort "Missing addon.d preservation script."
+mkdir -p "$SYSTEM_ROOT/addon.d" || abort "Unable to create addon.d directory."
+cp "$ADDON_SRC" "$SYSTEM_ROOT/addon.d/30-goreecloud-os-apps.sh" || abort "Unable to install addon.d script."
+chown root:root "$SYSTEM_ROOT/addon.d/30-goreecloud-os-apps.sh"
+chmod 0755 "$SYSTEM_ROOT/addon.d/30-goreecloud-os-apps.sh"
+
+if command -v restorecon >/dev/null 2>&1; then
+  restorecon -RF "$PRODUCT_ROOT/app/GoreeCloudMemos"     "$PRODUCT_ROOT/app/GoreeCloudLauncher"     "$PRODUCT_ROOT/app/GoreeCloudBrowser"     "$PRODUCT_ROOT/app/GoreeCloudKeyboard"     "$PRODUCT_ROOT/app/GoreeCloudGallery"     "$PRODUCT_ROOT/app/GoreeCloudMail"     "$PRODUCT_ROOT/app/GoreeCloudCamera"     "$PRODUCT_ROOT/app/GoreeCloudSince"     "$PRODUCT_ROOT/app/GoreeCloudClock" >/dev/null 2>&1 || true
+  restorecon -F "$SYSTEM_ROOT/addon.d/30-goreecloud-os-apps.sh" >/dev/null 2>&1 || true
+fi
+
+sync
+rm -rf "$TMP"
+ui_print "Installed 9 GoreeCloud system apps to /product/app."
+ui_print "Installed addon.d v3 OTA preservation."
+ui_print "Reboot Android, then choose GoreeCloud Launcher and Keyboard when prompted."
+exit 0
