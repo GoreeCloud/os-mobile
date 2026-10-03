@@ -1,0 +1,10 @@
+service goreecloud-default-apps /system/bin/sh /product/bin/goreecloud-default-apps.sh
+    class late_start
+    user shell
+    group shell log
+    seclabel u:r:shell:s0
+    disabled
+    oneshot
+
+on property:sys.boot_completed=1
+    start goreecloud-default-apps

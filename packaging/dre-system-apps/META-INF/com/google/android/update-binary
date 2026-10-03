@@ -46,7 +46,8 @@ mount /product 2>/dev/null || true
 
 rm -rf "$TMPROOT"
 mkdir -p "$TMPROOT"
-unzip -o "$ZIPFILE" 'payload/*' 'system/addon.d/*' -d "$TMPROOT" >/dev/null || abort_install "Could not extract package payload."
+unzip -o "$ZIPFILE" 'payload/*' 'product/*' 'system/addon.d/*' -d "$TMPROOT" >/dev/null ||
+  abort_install "Could not extract package payload."
 
 install_app() {
   appdir="$1"
@@ -71,6 +72,16 @@ install_app GoreeCloudCamera GoreeCloudCamera.apk camera.apk
 install_app GoreeCloudSince GoreeCloudSince.apk since.apk
 install_app GoreeCloudClock GoreeCloudClock.apk clock.apk
 
+ui_print "Installing GoreeCloud default-app integration..."
+mkdir -p /product/overlay /product/bin /product/etc/init
+cp -f "$TMPROOT/payload/gallery-framework-overlay.apk"   /product/overlay/GoreeCloudGalleryFrameworksBaseOverlay.apk
+cp -f "$TMPROOT/product/bin/goreecloud-default-apps.sh"   /product/bin/goreecloud-default-apps.sh
+cp -f "$TMPROOT/product/etc/init/goreecloud-default-apps.rc"   /product/etc/init/goreecloud-default-apps.rc
+chown 0:0   /product/overlay/GoreeCloudGalleryFrameworksBaseOverlay.apk   /product/bin/goreecloud-default-apps.sh   /product/etc/init/goreecloud-default-apps.rc 2>/dev/null || true
+chmod 0644 /product/overlay/GoreeCloudGalleryFrameworksBaseOverlay.apk
+chmod 0755 /product/bin/goreecloud-default-apps.sh
+chmod 0644 /product/etc/init/goreecloud-default-apps.rc
+
 ui_print "Installing LineageOS OTA persistence hook..."
 mkdir -p /system/addon.d
 cp -f "$TMPROOT/system/addon.d/99-goreecloud-system-apps.sh" /system/addon.d/99-goreecloud-system-apps.sh
@@ -78,19 +89,12 @@ chown 0:0 /system/addon.d/99-goreecloud-system-apps.sh 2>/dev/null || true
 chmod 0755 /system/addon.d/99-goreecloud-system-apps.sh
 
 if command -v restorecon >/dev/null 2>&1; then
-  restorecon -RF /product/app/GoreeCloudMemos \
-    /product/app/GoreeCloudLauncher \
-    /product/app/GoreeCloudBrowser \
-    /product/app/GoreeCloudKeyboard \
-    /product/app/GoreeCloudGallery \
-    /product/app/GoreeCloudMail \
-    /product/app/GoreeCloudCamera \
-    /product/app/GoreeCloudSince \
-    /product/app/GoreeCloudClock \
-    /system/addon.d/99-goreecloud-system-apps.sh 2>/dev/null || true
+  restorecon -RF /product/app/GoreeCloudMemos     /product/app/GoreeCloudLauncher     /product/app/GoreeCloudBrowser     /product/app/GoreeCloudKeyboard     /product/app/GoreeCloudGallery     /product/app/GoreeCloudMail     /product/app/GoreeCloudCamera     /product/app/GoreeCloudSince     /product/app/GoreeCloudClock     /product/overlay/GoreeCloudGalleryFrameworksBaseOverlay.apk     /product/bin/goreecloud-default-apps.sh     /product/etc/init/goreecloud-default-apps.rc     /system/addon.d/99-goreecloud-system-apps.sh 2>/dev/null || true
 fi
 
 sync
-ui_print "GoreeCloud system applications installed."
-ui_print "Reboot Android, then select GoreeCloud Launcher and GoreeCloud Keyboard when prompted/configuring defaults."
+ui_print "GoreeCloud system applications and default-app integration installed."
+ui_print "On first Android boot, GoreeCloud Launcher becomes HOME and GoreeCloud Gallery becomes the system Gallery."
+ui_print "Lineage Launcher3QuickStep remains installed for the current Development Quickstep/Recents backend."
+ui_print "Enable/select GoreeCloud Keyboard separately after boot."
 exit 0
