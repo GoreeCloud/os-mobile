@@ -160,6 +160,8 @@ if [ -z "$SOURCE_REVISION" ]; then
   SOURCE_REVISION="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
 fi
 [ -n "$SOURCE_REVISION" ] || fail "Could not determine source revision; pass --source-revision"
+CHECKOUT_REVISION="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+[ "$CHECKOUT_REVISION" = "$SOURCE_REVISION" ] || fail "Packaging checkout does not match the requested source revision"
 
 OUTPUT_DIR="$(dirname -- "$OUTPUT")"
 OUTPUT_NAME="$(basename -- "$OUTPUT")"
@@ -187,6 +189,11 @@ fi
 [ -d "$INPUT_ROOT/apks" ] || fail "Unsigned bundle is missing apks/"
 [ -d "$INPUT_ROOT/provenance" ] || fail "Unsigned bundle is missing provenance/"
 [ -f "$INPUT_ROOT/SHA256SUMS-UNSIGNED" ] || fail "Unsigned bundle is missing SHA256SUMS-UNSIGNED"
+[ -f "$INPUT_ROOT/provenance/gallery-framework-overlay.provenance.txt" ] || fail "Unsigned bundle is missing Gallery overlay provenance"
+
+BUNDLE_SOURCE_REVISION="$(sed -n 's/^source_revision=//p' "$INPUT_ROOT/provenance/gallery-framework-overlay.provenance.txt" | head -n 1)"
+[ -n "$BUNDLE_SOURCE_REVISION" ] || fail "Gallery overlay provenance does not contain source_revision"
+[ "$BUNDLE_SOURCE_REVISION" = "$SOURCE_REVISION" ] || fail "Unsigned bundle source revision does not match the packaging checkout"
 
 EXPECTED_APKS=(
   browser.apk
@@ -203,8 +210,13 @@ EXPECTED_APKS=(
 
 ACTUAL_COUNT="$(find "$INPUT_ROOT/apks" -maxdepth 1 -type f -name '*.apk' | wc -l | tr -d '[:space:]')"
 [ "$ACTUAL_COUNT" = "10" ] || fail "Expected exactly 10 unsigned APKs; found $ACTUAL_COUNT"
+PROVENANCE_COUNT="$(find "$INPUT_ROOT/provenance" -maxdepth 1 -type f -name '*.provenance.txt' | wc -l | tr -d '[:space:]')"
+[ "$PROVENANCE_COUNT" = "10" ] || fail "Expected exactly 10 provenance records; found $PROVENANCE_COUNT"
 for apk in "${EXPECTED_APKS[@]}"; do
   [ -f "$INPUT_ROOT/apks/$apk" ] || fail "Unsigned bundle is missing apks/$apk"
+done
+for provenance in "$INPUT_ROOT"/provenance/*.provenance.txt; do
+  grep -Fxq 'signing_state=unsigned' "$provenance" || fail "Provenance is not marked unsigned: $(basename "$provenance")"
 done
 
 note "Verifying unsigned input checksums..."
@@ -238,6 +250,13 @@ sign_one() {
     "$input"
   "$APKSIGNER" verify --verbose --print-certs "$output" >/dev/null
 }
+
+note "Confirming signing input APKs are not already signed..."
+for apk in "${EXPECTED_APKS[@]}"; do
+  if "$APKSIGNER" verify "$INPUT_ROOT/apks/$apk" >/dev/null 2>&1; then
+    fail "Signing input is already signed: $apk"
+  fi
+done
 
 note "Signing 10 APKs without exposing signing passwords..."
 for apk in "${EXPECTED_APKS[@]}"; do
