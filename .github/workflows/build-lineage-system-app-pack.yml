@@ -150,8 +150,8 @@ jobs:
           stage GoreeCloudGallery com.goreecloud.gallery sources/android-app-defaults/apps/gallery/native
           stage GoreeCloudMail com.goreecloud.mail sources/mail/clients/android
           stage GoreeCloudCamera com.goreecloud.camera sources/android-app-defaults/apps/camera
-          stage GoreeCloudSince com.goreecloud.since sources/android-app-defaults
-          stage GoreeCloudClock com.goreecloud.clock sources/android-app-defaults
+          stage GoreeCloudSince com.goreecloud.since sources/android-app-defaults/apps/since
+          stage GoreeCloudClock com.goreecloud.clock sources/android-app-defaults/apps/clock
 
           cp packaging/lineage-system-app-pack/update-binary artifact-inputs/installer/
           cp packaging/lineage-system-app-pack/30-goreecloud-os-apps.sh artifact-inputs/installer/
