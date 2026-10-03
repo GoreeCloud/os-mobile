@@ -189,42 +189,6 @@ jobs:
               ;;
           esac
 
-      - name: Normalize Development system-package version and release shrinker
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "${{ matrix.id }}" in
-            launcher)
-              sed -i 's/isMinifyEnabled = true/isMinifyEnabled = false/' src/apps/launcher/app/build.gradle.kts
-              echo "GOREECLOUD_DEV_VERSION_CODE=$GOREECLOUD_SYSTEM_APP_VERSION_CODE" >> "$GITHUB_ENV"
-              ;;
-            gallery)
-              echo "GOREECLOUD_GALLERY_DEV_VERSION_CODE=$GOREECLOUD_SYSTEM_APP_VERSION_CODE" >> "$GITHUB_ENV"
-              ;;
-            since)
-              echo "GOREECLOUD_DEV_VERSION_CODE=$GOREECLOUD_SYSTEM_APP_VERSION_CODE" >> "$GITHUB_ENV"
-              ;;
-            mail)
-              sed -i 's/isMinifyEnabled = true/isMinifyEnabled = false/' src/clients/android/app/build.gradle.kts
-              sed -i -E "s/versionCode = [0-9]+/versionCode = $GOREECLOUD_SYSTEM_APP_VERSION_CODE/" src/clients/android/app/build.gradle.kts
-              ;;
-            browser)
-              sed -i -E "s/versionCode = [0-9]+/versionCode = $GOREECLOUD_SYSTEM_APP_VERSION_CODE/" src/apps/android/app/build.gradle.kts
-              ;;
-            memos)
-              sed -i -E "s/versionCode = [0-9]+/versionCode = $GOREECLOUD_SYSTEM_APP_VERSION_CODE/" src/android/app/build.gradle.kts
-              ;;
-            keyboard)
-              sed -i -E "s/versionCode = [0-9]+/versionCode = $GOREECLOUD_SYSTEM_APP_VERSION_CODE/" src/apps/keyboard/android/app/build.gradle.kts
-              ;;
-            camera)
-              sed -i -E "s/versionCode = [0-9]+/versionCode = $GOREECLOUD_SYSTEM_APP_VERSION_CODE/" src/apps/camera/app/build.gradle.kts
-              ;;
-            clock)
-              sed -i -E "s/versionCode = [0-9]+/versionCode = $GOREECLOUD_SYSTEM_APP_VERSION_CODE/" src/apps/clock/build.gradle.kts
-              ;;
-          esac
-
       - name: Assemble canonical release-identity APK
         working-directory: src/${{ matrix.project_dir }}
         shell: bash
