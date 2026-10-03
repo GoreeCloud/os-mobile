@@ -1,0 +1,187 @@
+name: Build Lineage system app pack inputs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packaging/lineage-system-app-pack/**"
+      - "scripts/verify_lineage_system_app_pack.py"
+      - ".github/workflows/build-lineage-system-app-pack.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ANDROID_DEFAULTS_SHA: b433104499372248d03cd0fed89fa729b6db1d77
+  BROWSER_SHA: 367af76a2d95c1183c2419189b1c7b1e5376ae63
+  MEMOS_SHA: 6e0e4f9e33ad2f1b5ae7d1d43f68a8f610b73884
+  MAIL_SHA: a1bcfaed0a88faaad7b2beb6bf67d800964de0e9
+
+jobs:
+  build:
+    name: Build exact-source unsigned canonical APKs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out OS packaging source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out Android app defaults
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: GoreeCloud/android-app-defaults
+          ref: ${{ env.ANDROID_DEFAULTS_SHA }}
+          path: sources/android-app-defaults
+          persist-credentials: false
+
+      - name: Check out Browser
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: GoreeCloud/browser
+          ref: ${{ env.BROWSER_SHA }}
+          path: sources/browser
+          persist-credentials: false
+
+      - name: Check out Memos
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: GoreeCloud/memos
+          ref: ${{ env.MEMOS_SHA }}
+          path: sources/memos
+          persist-credentials: false
+
+      - name: Check out Mail
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: GoreeCloud/mail
+          ref: ${{ env.MAIL_SHA }}
+          path: sources/mail
+          persist-credentials: false
+
+      - name: Verify exact source revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C sources/android-app-defaults rev-parse HEAD)" = "$ANDROID_DEFAULTS_SHA"
+          test "$(git -C sources/browser rev-parse HEAD)" = "$BROWSER_SHA"
+          test "$(git -C sources/memos rev-parse HEAD)" = "$MEMOS_SHA"
+          test "$(git -C sources/mail rev-parse HEAD)" = "$MAIL_SHA"
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: "15859902"
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+
+      - name: Install Android SDK platforms
+        shell: bash
+        run: sdkmanager "platforms;android-35" "platforms;android-36" "platforms;android-37" "build-tools;37.0.0"
+
+      - name: Configure Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Build Launcher, Keyboard, Clock, Since, Memos, and Mail release APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle -p sources/android-app-defaults/apps/launcher --no-daemon :app:assembleRelease
+          gradle -p sources/android-app-defaults/apps/keyboard --no-daemon :android:app:assembleRelease
+          gradle -p sources/android-app-defaults --no-daemon :apps:clock:assembleRelease :apps:since:assembleRelease
+          gradle -p sources/memos/android --no-daemon :app:assembleRelease
+          gradle -p sources/mail/clients/android --no-daemon :app:assembleRelease
+
+      - name: Configure Gradle 8.14.3
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Build Gallery release APK
+        run: gradle -p sources/android-app-defaults/apps/gallery/native --no-daemon :app:assembleRelease
+
+      - name: Configure Gradle 9.6.0
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Build Camera release APK
+        run: gradle -p sources/android-app-defaults/apps/camera --no-daemon :app:assembleRelease
+
+      - name: Configure Gradle 8.9
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "8.9"
+
+      - name: Build Browser release APK
+        run: gradle -p sources/browser/apps/android --no-daemon :app:assembleRelease
+
+      - name: Stage and verify canonical APK inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifact-inputs/apks artifact-inputs/installer
+          AAPT="$ANDROID_HOME/build-tools/37.0.0/aapt"
+
+          stage() {
+            local name="$1" package="$2" root="$3"
+            local apk
+            apk="$(find "$root" -type f -path '*/outputs/apk/release/*.apk' ! -name '*androidTest*' -print | sort | head -n 1)"
+            test -n "$apk" && test -s "$apk"
+            cp "$apk" "artifact-inputs/apks/$name-unsigned.apk"
+            "$AAPT" dump badging "$apk" | tee "artifact-inputs/apks/$name.badging.txt"
+            grep -F "package: name='$package'" "artifact-inputs/apks/$name.badging.txt"
+          }
+
+          stage GoreeCloudMemos com.goreecloud.memos sources/memos/android
+          stage GoreeCloudLauncher com.goreecloud.launcher sources/android-app-defaults/apps/launcher
+          stage GoreeCloudBrowser io.goreecloud.browser sources/browser/apps/android
+          stage GoreeCloudKeyboard com.goreecloud.keyboard sources/android-app-defaults/apps/keyboard
+          stage GoreeCloudGallery com.goreecloud.gallery sources/android-app-defaults/apps/gallery/native
+          stage GoreeCloudMail com.goreecloud.mail sources/mail/clients/android
+          stage GoreeCloudCamera com.goreecloud.camera sources/android-app-defaults/apps/camera
+          stage GoreeCloudSince com.goreecloud.since sources/android-app-defaults
+          stage GoreeCloudClock com.goreecloud.clock sources/android-app-defaults
+
+          cp packaging/lineage-system-app-pack/update-binary artifact-inputs/installer/
+          cp packaging/lineage-system-app-pack/30-goreecloud-os-apps.sh artifact-inputs/installer/
+          cp packaging/lineage-system-app-pack/make-package.sh artifact-inputs/installer/
+          cp packaging/lineage-system-app-pack/sources.lock.json artifact-inputs/
+          cp scripts/verify_lineage_system_app_pack.py artifact-inputs/
+          chmod 0755 artifact-inputs/installer/*.sh artifact-inputs/installer/update-binary artifact-inputs/verify_lineage_system_app_pack.py
+
+          cat > artifact-inputs/BUILD-PROVENANCE.txt <<EOF
+          artifact_role=unsigned-canonical-apk-inputs
+          signing_role=none
+          target_device=dre
+          target_lineage=23.2
+          target_android_sdk=36
+          os_mobile_source=$GITHUB_SHA
+          android_app_defaults_source=$ANDROID_DEFAULTS_SHA
+          browser_source=$BROWSER_SHA
+          memos_source=$MEMOS_SHA
+          mail_source=$MAIL_SHA
+          EOF
+          (
+            cd artifact-inputs
+            find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+
+      - name: Upload unsigned system-pack build inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: goreecloud-os-lineage-system-app-pack-inputs-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: artifact-inputs/**
